@@ -1,0 +1,29 @@
+GEM
+  remote: https://rubygems.org/
+  specs:
+    debug (1.7.1)
+      irb (>= 1.5.0)
+      reline (>= 0.3.1)
+    gosu (1.4.5)
+    gosu-examples (1.0.5)
+      gosu (>= 0.11.0)
+    io-console (0.6.0)
+    irb (1.6.2)
+      reline (>= 0.3.0)
+    rake (13.0.6)
+    reline (0.3.2)
+      io-console (~> 0.5)
+    ruby-debug-ide (0.7.3)
+      rake (>= 0.8.1)
+
+PLATFORMS
+  x64-mingw-ucrt
+
+DEPENDENCIES
+  debug
+  gosu
+  gosu-examples
+  ruby-debug-ide
+
+BUNDLED WITH
+   2.3.26
