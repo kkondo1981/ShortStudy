@@ -1,7 +1,7 @@
 require 'gosu'
 
 class Player
-	attr_accessor :name, :life, :maxLife, :defence, :poison, :slackenerPeriod, :hand, :mana, :maxMana, :image
+	attr_accessor :name, :life, :maxLife, :defence, :poison, :slackenerPeriod, :hand, :mana, :maxMana, :image, :bb, :targetable
 	def initialize(name)
 		@name = name
 		@maxLife = 0
@@ -15,10 +15,14 @@ class Player
 		@discardPile = []
 		@initNumofHandCard = 0
 		@initNumOfDrawCard = 4
+		@bb = nil # boundiing box
 		@y_add_period = 1000
 		@name_font = Gosu::Font.new(20, {bold: true})
 		@status_font = Gosu::Font.new(18)
-		@card_font = Gosu::Font.new(16)
+		@draw_card = "below"
+		@targetable = false
+		@state = nil
+		@image_dead = Gosu::Image.new("./images/grave.png")
 	    case name
         when 'TestPlayer'
             @initNumOfDrawCard = 20
@@ -50,6 +54,7 @@ class Player
 			end
 			@image = Gosu::Image.new("./images/fighter.png")
 			@y_add_period = 200
+			@draw_card = "right"
         when 'Healer'
 			@maxLife = 50
 			4.times do
@@ -62,6 +67,7 @@ class Player
 				@initDeck.append(Card.new('MercyLight'))
 			end
 			@y_add_period = 200
+			@draw_card = "right"
         when 'A Ghost'
 			@maxLife = 53
 			@initMana = 1
@@ -99,15 +105,48 @@ class Player
 			@image = Gosu::Image.new("./images/nil.png")
 		end
 	end
-	def drawImage(x, y, w, h, times, mouse_x, mouse_y, draw_card="below")
+	def setBoundingBoxes(x, y, w, h)
+		@bb = [x, y, w, h]
+		x0, y0 = x, y
+
+		y += h
+		y += @name_font.height # for a name line
+		y += @status_font.height # for a status line
+		y += @status_font.height # for a field line
+		
+		if @draw_card == "right"
+			x = x0 + w + 10
+			y = y0
+		end
+
+		@hand.each_with_index {|crd, i|
+			tw, th = crd.calcSize
+			crd.bb = [x, y, tw, th]
+			y += th
+		}
+	end
+	def drawImage(times, mouse_x, mouse_y)
+		return if !@bb
+
+		image = @life > 0 ? @image : @image_dead
+
+		x, y, w, h = @bb
+
 		x0 = x
 		y0 = y
 
 		rad = 2 * Math::PI * ((times.to_i % @y_add_period) / @y_add_period.to_f)
-		y_add = 10 * Math.sin(rad)
-		scale_x = w.to_f / @image.width
-		scale_y = h.to_f / @image.height
-		@image.draw(x, y + y_add, 0, scale_x, scale_y)
+		y_add = @life > 0 ? 10 * Math.sin(rad) : 0
+		scale_x = w.to_f / image.width
+		scale_y = h.to_f / image.height
+
+		if @targetable || @state == "selected"
+			alpha = 0x40 + 2 * y_add
+            color = Gosu::Color.argb(alpha, 0xE0, 0xFF, 0xFF)
+            Gosu.draw_rect(x, y, w, h, color)
+        end
+
+		image.draw(x, y + y_add, 0, scale_x, scale_y)
 	
 		y += h
 		@name_font.draw_text(name, x, y, 0, 1, 1, 0xFF_FFC0CB)
@@ -116,28 +155,9 @@ class Player
 		y += @status_font.height
 		@status_font.draw_text(short_field_txt, x, y, 0, 1, 1, 0xFF_F0F0F0)
 		y += @status_font.height
-		
-		if draw_card == "right"
-			x = x0 + w + 10
-			y = y0
-		end
 
 		@hand.each_with_index {|crd, i|
-			s = "<#{i + 1}> #{crd.text}"
-
-			tw = @card_font.text_width(s)
-			hit = (x <= mouse_x && mouse_x <= x + tw && y <= mouse_y && mouse_y <= y + @card_font.height)
-
-			if crd.cost > @mana
-				color = 0xFF_E6E6FA
-			elsif hit
-				color = 0xFF_00FFFF
-			else
-				color = 0xFF_AFEEEE
-			end
-
-			@card_font.draw_text(s, x, y, 0, 1, 1, color)
-			y += @card_font.height
+			crd.drawImage(times, mouse_x, mouse_y)
 		}
 	end
 	def battlePrep
@@ -189,6 +209,16 @@ class Player
 	def discard(n)
 		@discardPile.append(@hand.delete_at(n))
 	end
+	def discardByCard(crd)
+		idx = -1
+		@hand.each_with_index{|c, i|
+			if c == crd
+				idx = i
+				break
+			end
+		}
+		discard(idx) if idx >= 0
+	end
 	def status_txt
 		@name + ' [Life ' + @life.to_s + ', Defence ' + @defence.to_s + ', Mana ' + @mana.to_s + '/' + @maxMana.to_s + ', Deck ' + @deck.length.to_s + ', Discard ' + @discardPile.length.to_s + ']'
 	end
@@ -222,4 +252,10 @@ class Player
 		end
 		@life > 0 && @mana >= minHandCardCost
 	end
+	def select
+        @state = "selected"
+    end
+    def release
+        @state = nil
+    end
 end

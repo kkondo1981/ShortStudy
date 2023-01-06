@@ -18,8 +18,11 @@ class MainWindow < Gosu::Window
         #@bg_enemy = Gosu::Image.new("./images/bg_night.png")
 
         @music = Gosu::Song.new("./sounds/PerituneMaterial_8bitRPG_Battle.mp3")
+        #@music = Gosu::Song.new("./sounds/PerituneMaterial_BattleField5.mp3")
         @music.volume = 0.5
         @music.play(true)
+
+        @mouse_locations = []
     end
 
     def update
@@ -32,7 +35,9 @@ class MainWindow < Gosu::Window
             end
         end
 
-        @gm.update
+        @gm.update(@mouse_locations)
+
+        @mouse_locations = []
     end
 
     def draw
@@ -43,7 +48,7 @@ class MainWindow < Gosu::Window
 
     def createStage1()
         plyArr = []
-        2.times do
+        1.times do
             plyArr.append(Player.new("Fighter"))
         end
 
@@ -51,9 +56,14 @@ class MainWindow < Gosu::Window
         3.times do
             enmArr.append(Player.new("A Tiny Ghost"))
         end        
-        @gm = GM.new(plyArr, enmArr)
-        
-        @gm
+        GM.new(plyArr, enmArr)
+    end
+
+    def button_down(id)
+        case id
+        when Gosu::MsLeft
+            @mouse_locations << [mouse_x, mouse_y]
+        end
     end
 end
 

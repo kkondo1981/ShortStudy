@@ -1,29 +1,172 @@
 require 'gosu'
 
+require './chooser.rb'
+require './effect.rb'
+
 class GM
-	attr_accessor :plyArr, :enmArr
+	attr_accessor :plyArr, :enmArr, :turn
 	def initialize(plyArr, enmArr)
 		@plyArr = plyArr
 		@enmArr = enmArr
+		@effectArr = nil
+		@state = nil
+		@chooser = nil
+		@chosenPlayer = nil
+		@chosenCard = nil
+		@targetArr = nil
+		@turn = nil
+		@passed = false
+		@message_font = Gosu::Font.new(30, {bold: true})
 	end
-
-	def draw(times, mouse_x, mouse_y)
+    def offenceArr
+        @turn == "player" ? @plyArr : @enmArr
+    end
+    def defenceArr
+        @turn == "player" ? @enmArr : @plyArr
+    end
+	def allPlyArr
+		@plyArr + @enmArr
+	end
+	def releaseAll
+		allPlyArr.each{|ply|
+			ply.release
+			ply.hand.each{|crd|
+				crd.release
+			}
+		}
+	end
+	def setBoundingBoxes
 		@enmArr.each_with_index{|enm, i|
 			x = 50 + 200 * i
-
 			y = 50
 			w = h = 100
-			enm.drawImage(x, y, w, h, times + i * 100, mouse_x, mouse_y, "below")
+			enm.setBoundingBoxes(x, y, w, h)
 		}
 
 		@plyArr.each_with_index{|ply, i|
 			x = 50
 			y = 250 + 220 * i
 			w = h = 150
-			ply.drawImage(x, y, w, h, times + i * 100, mouse_x, mouse_y, "right")
+			ply.setBoundingBoxes(x, y, w, h)
 		}
 	end
+	def draw(times, mouse_x, mouse_y)
+		return if !@state
 
+		if @turn == "over"
+			@message_font.draw_text(@battleEndFlg, 5, 5, 0, 1, 1, 0xFF_FFFFFF)
+		end
+
+		@enmArr.each_with_index{|enm, i|
+			enm.drawImage(times + i * 100, mouse_x, mouse_y)
+		}
+		@plyArr.each_with_index{|ply, i|
+			ply.drawImage(times + i * 100, mouse_x, mouse_y)
+		}
+
+		if @trun != "over"
+			@chooser.draw(times, mouse_x, mouse_y) if @chooser
+			@effectArr[0].draw(times, mouse_x, mouse_y) if @effectArr && @effectArr.length > 0
+		end
+	end
+	def changeState(state)
+		# initialize state
+		case state
+		when "show_effect"
+			@plyArr.each{|ply| ply.targetable = false}
+			@enmArr.each{|enm| enm.targetable = false}
+		when "select_skill"
+			@chooser = nil
+			@chosenPlayer = nil
+			@chosenCard = nil
+			@targetArr = nil
+		when "enemy_attack"
+			@currentEnemy = nil
+			@chosenCard = nil
+			@targetArr = nil
+		end
+		@state = state
+	end
+	def updateSelectSkill(mouse_locations)
+		return if @turn == "over"
+
+		@battleEndFlg = judgeBattleEnd
+		if @battleEndFlg != ""
+			@turn = "over"
+			@effectArr = [@battleEndFlg == "Player Win!!!" ? WinEffect.new() : LoseEffect.new()]
+			changeState("show_effect")
+			return
+		end
+
+		if !@chooser
+			@chooser = SkillChooser.new(self)
+			releaseAll
+		end
+
+		if !@chooser.possible
+			if @passed
+				@state = nil
+			else
+				@turn = @turn == "player" ? "enemy" : "player"
+				@passed = true
+				@chooser = SkillChooser.new(self)
+			end
+		elsif @chooser.getChosen
+			@chosenPlayer = @chooser.chosenPlayer
+			@chosenCard = @chooser.chosenCard			
+			@chooser = nil
+			changeState("select_target")
+		end
+	end
+	def updateSelectTarget(mouse_locations)
+		if !@chooser
+			@chooser = createTargetChooser(self, @chosenPlayer, @chosenCard.targetType)
+		elsif @chooser.getChosen
+			@targetArr = @chooser.targetArr
+			@chosenPlayer.discardByCard(@chosenCard)
+			@effectArr = @chosenCard.createEffect(@chosenPlayer, @targetArr)
+			@effectArr.append(NopEffect.new) if @turn == "enemy"
+			@chooser = nil
+			changeState("show_effect")
+		end
+	end
+	def updateShowEffect(mouse_locations)
+		if @effectArr && @effectArr.length > 0
+			eff = @effectArr[0]
+			eff.update(mouse_locations)
+			if eff.over
+				@effectArr = @effectArr + eff.additionalEffectArr if eff.additionalEffectArr
+				@effectArr = @effectArr.drop(1)
+			end
+		else
+			@effectArr = nil
+			changeState("select_skill")
+		end
+	end
+	def update(mouse_locations)
+		return if @turn == "over" && !@effectArr
+
+		if !@state
+			battlePrep
+			turnBegin
+			changeState("select_skill")
+		end
+
+		setBoundingBoxes
+
+		if mouse_locations && @chooser
+			@chooser.choose(mouse_locations)
+		end
+
+		case @state
+		when "select_skill"
+			updateSelectSkill(mouse_locations)
+		when "select_target"
+			updateSelectTarget(mouse_locations)
+		when "show_effect"
+			updateShowEffect(mouse_locations)
+		end
+	end
 	def displayScene
 		puts "■相手の状況"
 		i = 0
@@ -193,8 +336,7 @@ class GM
 			ply.battlePrep
 		end
 		@battleEndFlg = ""
-		@turnFlg = ""
-	end 
+	end
 	#ターン開始処理
 	def turnBegin
 		@plyArr.each do |ply|
@@ -203,21 +345,9 @@ class GM
 		@enmArr.each do |enm|
 			enm.turnBegin
 		end
-	end
-	def update
-		if !@battleEndFlg
-			battlePrep
-		end
-		if @turnFlg == ""
-			turnBegin
-		end
-
-		playable = false
-		living = false
-		@plyArr.each do |ply|
-			playable |= ply.playable
-			living |= ply.life > 0
-		end
+		@turn = "player"
+		@passed = false
+		changeState("select_skill")
 	end
 	def battleOneTurn
 		#ターン
@@ -356,11 +486,11 @@ class GM
 			end
 		end
 		if flgAllEnemyDead == true && flgAllPlayerDead == false
-			@battleEndFlg = "Player勝利"
+			@battleEndFlg = "Player Win!!!"
 		elsif flgAllEnemyDead == false && flgAllPlayerDead == true
-			@battleEndFlg = "Player敗北"
+			@battleEndFlg = "Player Lose..."
 		elsif flgAllEnemyDead == true && flgAllPlayerDead == true
-			@battleEndFlg = "相打ち"
+			@battleEndFlg = "Draw..."
 		else
 			@battleEndFlg = ""
 		end

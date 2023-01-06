@@ -1,5 +1,8 @@
+require 'gosu'
+require './effect.rb'
+
 class Card
-    attr_accessor :name, :targetType, :cost, :text
+    attr_accessor :name, :targetType, :cost, :text, :bb, :selected, :playable, :effect
     def initialize(name)
 		@name = name
 		@targetType = ''	#me, player, allplayer, otherplayer, allotherplayer, enemy, allenemy, allother, all, card
@@ -12,6 +15,10 @@ class Card
         @poisonMultiplier = 0
         @slackenerPeriod = 0
         @text = ''
+        @bb = nil
+        @playable = true
+        @font = Gosu::Font.new(16)
+        @state = nil
 	    case name
         #For Player
         #damage
@@ -79,6 +86,23 @@ class Card
             @atk = 20
             @text = @name + " [atk " + @atk.to_s + "] [" + @cost.to_s + "]"
         end
+    end
+    def createEffect(player, targetArr)
+        effectArr = [UseManaEffect.new(player, @cost)]
+        targetArr.each do |target|
+            if @atk != 0
+                case @name
+                when 'Sword'
+                    effectArr.append(SwordEffect.new(player, target, @atk))
+                when 'CandleFlame'
+                    effectArr.append(CandleFlameEffect.new(player, target, @atk))
+                end
+            end
+			if @defence != 0
+                effectArr.append(ShieldEffect.new(target, @defence))
+			end
+        end
+        effectArr
     end
 	def play(player, targetArr)
 		targetArr.each do |target|
@@ -155,4 +179,32 @@ class Card
             end
 		end
 	end
+    def calcSize
+        [@font.text_width(text), @font.height]
+    end
+    def select
+        @state = "selected"
+    end
+    def release
+        @state = nil
+    end
+    def drawImage(times, mouse_x, mouse_y)
+        x, y, w, h = @bb
+
+        if @state == "selected"
+            color = 0x88_EE82EE
+            Gosu.draw_rect(x, y, w, h, color)
+        end
+
+        over = (x < mouse_x && mouse_x < x + w && y < mouse_y && mouse_y < y + h)
+        if !@playable
+            color = 0xFF_E6E6FA
+        elsif over
+            color = 0xFF_00FFFF
+        else
+            color = 0xFF_AFEEEE
+        end
+
+        @font.draw_text(text, x, y, 0, 1, 1, color)
+    end
 end
