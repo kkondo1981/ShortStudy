@@ -5,7 +5,7 @@ require './gm.rb'
 
 class MainWindow < Gosu::Window
     def initialize
-        super 800, 720
+        super 800, 600
         self.caption =
          "Slay the Ghosts!!!"
             
@@ -15,12 +15,7 @@ class MainWindow < Gosu::Window
         @times = 0.0
 
         @bg_wall = Gosu::Image.new("./images/bg_wall.png")
-        #@bg_enemy = Gosu::Image.new("./images/bg_night.png")
-
-        @music = Gosu::Song.new("./sounds/PerituneMaterial_8bitRPG_Battle.mp3")
-        #@music = Gosu::Song.new("./sounds/PerituneMaterial_BattleField5.mp3")
-        @music.volume = 0.5
-        @music.play(true)
+        @bg_enemy = Gosu::Image.new("./images/bg_night.png")
 
         @mouse_locations = []
     end
@@ -28,12 +23,8 @@ class MainWindow < Gosu::Window
     def update
         @times += update_interval
 
-        if !@gm
-            if @stage == 0
-                @gm = createStage1
-                @stage = 1
-            end
-        end
+        createStage if !@gm || @gm.state == "win"
+        exit() if ["lose", "draw"].include?(@gm.state)
 
         @gm.update(@mouse_locations)
 
@@ -41,22 +32,68 @@ class MainWindow < Gosu::Window
     end
 
     def draw
+        return if !@gm
         @bg_wall.draw(0, 0, 0, width.to_f / @bg_wall.width, height.to_f / @bg_wall.height, 0x60_FFFFFF)
         #@bg_enemy.draw(30, 30, 0, 450.0 / @bg_enemy.width, 140.0 / @bg_enemy.height)
         @gm.draw(@times, mouse_x, mouse_y)
     end
 
-    def createStage1()
+    def createPlayer
         plyArr = []
-        1.times do
-            plyArr.append(Player.new("Fighter"))
-        end
+        plyArr.append(Player.new("Fighter"))
+        plyArr
+    end
 
+    def createEnemy1
+        enmArr = []
+        enmArr.append(Player.new("A Ghost"))
+        enmArr
+    end
+    
+    def createEnemy2
         enmArr = []
         3.times do
             enmArr.append(Player.new("A Tiny Ghost"))
         end        
-        GM.new(plyArr, enmArr)
+        enmArr
+    end
+        
+    def createEnemy3
+        enmArr = []
+        enmArr.append(Player.new("The King of Ghost"))
+        enmArr
+    end
+
+    def createStage
+        case @stage
+        when 0
+            plyArr = createPlayer
+            enmArr = createEnemy1
+            @gm = GM.new(plyArr, enmArr)
+            @stage = 1
+            @music = Gosu::Song.new("./sounds/PerituneMaterial_8bitRPG_Battle.mp3")
+            @music.volume = 0.5
+            @music.play(true)    
+        when 1
+            plyArr = @gm.plyArr
+            enmArr = createEnemy2
+            @gm = GM.new(plyArr, enmArr)
+            @stage = 2
+            @music = Gosu::Song.new("./sounds/PerituneMaterial_8bitRPG_Battle.mp3")
+            @music.volume = 0.5
+            @music.play(true)
+
+        when 2
+            plyArr = @gm.plyArr
+            enmArr = createEnemy3
+            @gm = GM.new(plyArr, enmArr)
+            @stage = 3
+            @music = Gosu::Song.new("./sounds/PerituneMaterial_BattleField5.mp3")
+            @music.volume = 0.5
+            @music.play(true)
+        else
+            exit() # TODO: game clear?
+        end
     end
 
     def button_down(id)

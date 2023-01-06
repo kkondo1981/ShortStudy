@@ -142,13 +142,36 @@ class SwordEffect < Effect
     end
 end
 
-class CandleFlameEffect < Effect
+class FlameEffect < Effect
     def initialize(ply, target, atk)
         super("./sounds/flame.mp3", 20)
         @ply = ply
         @target = target
         @atk = atk
         setImage("./effects/flame.png", 192, 192, 0.5)
+        setBoundingBox(@target.bb)
+    end
+
+    def execute()
+        if @target.life > 0
+            atk = @atk
+            atk = atk / 2 if @ply.slackenerPeriod > 0 && atk >= 2
+            dmg = [0, atk - @target.defence].max
+            @target.defence = [0, @target.defence - atk].max
+            @target.life = [0, @target.life - dmg].max
+
+            addEffects(SlayedEffect.new(@target)) if @target.life == 0
+        end
+    end
+end
+
+class HellFlameEffect < Effect
+    def initialize(ply, target, atk)
+        super("./sounds/hell_flame.mp3", 40)
+        @ply = ply
+        @target = target
+        @atk = atk
+        setImage("./effects/hell_flame.png", 192, 192, 0.5)
         setBoundingBox(@target.bb)
     end
 

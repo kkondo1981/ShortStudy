@@ -94,8 +94,12 @@ class Card
                 case @name
                 when 'Sword'
                     effectArr.append(SwordEffect.new(player, target, @atk))
+                when 'Flame'
+                    effectArr.append(FlameEffect.new(player, target, @atk))
                 when 'CandleFlame'
-                    effectArr.append(CandleFlameEffect.new(player, target, @atk))
+                    effectArr.append(FlameEffect.new(player, target, @atk))
+                when 'HellFlame'
+                    effectArr.append(HellFlameEffect.new(player, target, @atk))
                 end
             end
 			if @defence != 0

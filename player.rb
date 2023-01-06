@@ -85,7 +85,7 @@ class Player
 			1.times do
 				@initDeck.append(Card.new('CandleFlame'))
 			end
-			@image = Gosu::Image.new("./images/ghost.png")
+			@image = Gosu::Image.new("./images/tiny_ghost.png")
 		when 'The King of Ghost'
 			@maxLife = 101
 			@initMana = 1
@@ -97,7 +97,7 @@ class Player
 			1.times do
 				@initDeck.append(Card.new('HellFlame'))
 			end
-			@image = Gosu::Image.new("./images/ghost.png")
+			@image = Gosu::Image.new("./images/king_ghost.png")
 		end
 		@life = @maxLife
 

@@ -4,7 +4,7 @@ require './chooser.rb'
 require './effect.rb'
 
 class GM
-	attr_accessor :plyArr, :enmArr, :turn
+	attr_accessor :plyArr, :enmArr, :turn, :state
 	def initialize(plyArr, enmArr)
 		@plyArr = plyArr
 		@enmArr = enmArr
@@ -39,13 +39,17 @@ class GM
 		@enmArr.each_with_index{|enm, i|
 			x = 50 + 200 * i
 			y = 50
-			w = h = 100
+			if enm.name == "The King of Ghost"
+				w = h = 150
+			else
+				w = h = 100
+			end
 			enm.setBoundingBoxes(x, y, w, h)
 		}
 
 		@plyArr.each_with_index{|ply, i|
 			x = 50
-			y = 250 + 220 * i
+			y = 300 + 220 * i
 			w = h = 150
 			ply.setBoundingBoxes(x, y, w, h)
 		}
@@ -54,7 +58,16 @@ class GM
 		return if !@state
 
 		if @turn == "over"
-			@message_font.draw_text(@battleEndFlg, 5, 5, 0, 1, 1, 0xFF_FFFFFF)
+			message = ""
+			case @battleEndFlg
+			when "win"
+				message = "Player win!!!"
+			when "lose"
+				message = "Enemy win..."
+			when "draw"
+				message = "Draw..."
+			end
+			@message_font.draw_text(message, 5, 5, 0, 1, 1, 0xFF_FFFFFF)
 		end
 
 		@enmArr.each_with_index{|enm, i|
@@ -93,7 +106,7 @@ class GM
 		@battleEndFlg = judgeBattleEnd
 		if @battleEndFlg != ""
 			@turn = "over"
-			@effectArr = [@battleEndFlg == "Player Win!!!" ? WinEffect.new() : LoseEffect.new()]
+			@effectArr = [@battleEndFlg == "win" ? WinEffect.new() : LoseEffect.new()]
 			changeState("show_effect")
 			return
 		end
@@ -144,7 +157,12 @@ class GM
 		end
 	end
 	def update(mouse_locations)
-		return if @turn == "over" && !@effectArr
+		return if ["win", "lose", "draw"].include?(@state)
+		
+		if @turn == "over" && !@effectArr
+			changeState(@battleEndFlg)
+			return
+		end
 
 		if !@state
 			battlePrep
@@ -486,11 +504,11 @@ class GM
 			end
 		end
 		if flgAllEnemyDead == true && flgAllPlayerDead == false
-			@battleEndFlg = "Player Win!!!"
+			@battleEndFlg = "win"
 		elsif flgAllEnemyDead == false && flgAllPlayerDead == true
-			@battleEndFlg = "Player Lose..."
+			@battleEndFlg = "lose"
 		elsif flgAllEnemyDead == true && flgAllPlayerDead == true
-			@battleEndFlg = "Draw..."
+			@battleEndFlg = "draw"
 		else
 			@battleEndFlg = ""
 		end
